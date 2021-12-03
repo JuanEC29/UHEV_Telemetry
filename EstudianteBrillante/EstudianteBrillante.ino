@@ -1,3 +1,13 @@
+/*
+UHEV :)
+*/
+
+
+#define pinLlanta 2 //Pin de interrupción de sensor hall para la Llanta
+#define pinMotor 3 //Pin de interrupción de sensor hall para el motor
+#define pinVoltaje A0 //Pin del sensor de Voltaje
+#define pinCorriente A1 //Pin del sensor de Corriente
+
 volatile unsigned long t_stamp; //Timestamp
 
 volatile uint16_t voltaje = 0; //Inicializa la variable para medición de voltaje
@@ -13,15 +23,6 @@ volatile bool isFirstRev_m = true; //Identifica que es la primera revolucion del
 
 volatile unsigned long mseg = 0; //Contador Timestamp
 
-bool newdataVI=false;
-bool newdataRPMmotor=false;
-bool newdataRPMwheel=false;
-
-#define pinLlanta 2 //Pin de interrupción de sensor hall para la Llanta
-#define pinMotor 3 //Pin de interrupción de sensor hall para el motor
-#define pinVoltaje A0 //Pin del sensor de Voltaje
-#define pinCorriente A1 //Pin del sensor de Corriente
-
 ISR(TIMER1_COMPA_vect) {
   mseg++;
 }
@@ -30,8 +31,7 @@ ISR(TIMER2_OVF_vect) {
   t_stamp = mseg;
   voltaje = analogRead(pinVoltaje); //lectura del voltaje
   corriente = analogRead(pinCorriente); //Lectura de la señal y transformacion a valor de corriente
-  newdataVI=true;
-  //Serial.println("VI,"+t_stamp+','+voltaje+','+corriente); //Imprimir lecturas de voltaje y corriente
+  SendVI(t_stamp, 2, voltaje, corriente);
 }
 
 void rpmWheel() {   // Funcion que se ejecuta durante cada interrupion
@@ -42,8 +42,8 @@ void rpmWheel() {   // Funcion que se ejecuta durante cada interrupion
   else {
     delta_t_w = mseg - t0_w;
     t0_w = mseg;
-    newdataRPMwheel=true;
   }
+  SendRPM(t0_w, 0, delta_t_w);
 }
 
 void rpmMotor() {   // Funcion que se ejecuta durante cada interrupion
@@ -54,8 +54,8 @@ void rpmMotor() {   // Funcion que se ejecuta durante cada interrupion
   else {
     delta_t_m = mseg - t0_m;
     t0_m = mseg;
-    newdataRPMmotor=true;
   }
+  SendRPM(t0_m, 1, delta_t_m);
 }
 
 void setup() {
@@ -83,55 +83,42 @@ void setup() {
 }
 
 void loop() {
-//Print data from sensors
-  printVI();
-  printRPMLlanta();
-  printRPMMotor();
+  //Magic shit
 }
 
-void SendData(){
+void SendRPM(unsigned long time, bool id, unsigned long data){
   /*
-  Data Message:
+  Data Message RPM:
 
-  time, ID, data1, data2, 0x13, 0x10
+  time, ID, data, 0x13, 0x10
 
   ID{
-    0: Voltage(data1) and Current(data2)
-    1: RPM Wheel(data1), 0x00(data2)
-    2: RPM motor(data1), 0x00(data2)
+  0: RPM Wheel(data1), 0x00(data2)
+  1: RPM motor(data1), 0x00(data2)
   }
   */
-
+  Serial.write(time);
+  Serial.write(0x2C); // ,
+  Serial.write(id);
+  Serial.write(0x2C); // ,
+  Serial.write(data);
+  Serial.write(0x13);
+  Serial.write(0x10);
 }
 
-void printVI(){
-  if (newdataVI==true){
-    Serial.print("VI, ");//Imprimir periodo de la Llanta
-    Serial.print(t_stamp);
-    Serial.print(",");
-    Serial.print(voltaje);
-    Serial.print(",");
-    Serial.println(corriente);
-    newdataVI=false;
-  }
-}
+void SendVI(unsigned long time, uint8_t id, unsigned long voltage, unsigned long current ){
+  /*
+  Data Message VI:
 
-void printRPMLlanta(){
-  if(newdataRPMwheel==true){
-    Serial.print("LLanta, ");//Imprimir periodo de la Llanta
-    Serial.print(t0);
-    Serial.print(",");
-    Serial.println(delta_t);
-    newdataRPMLlanta=false;
-  }
-}
-
-void printRPMMotor(){
-  if (newdataRPMmotor==true){
-    Serial.print("Motor, ");//Imprimir periodo de la Llanta
-    Serial.print(t_init);
-    Serial.print(",");
-    Serial.println(periodo);
-    newdataRPMmotor=false;
-  }
+  time, ID, Voltage, Current, 0x13, 0x10
+  */
+  Serial.write(time);
+  Serial.write(0x2C); // ,
+  Serial.write(id);
+  Serial.write(0x2C); // ,
+  Serial.write(voltage);
+  Serial.write(0x2C); // ,
+  Serial.write(current);
+  Serial.write(0x13);
+  Serial.write(0x10);
 }
