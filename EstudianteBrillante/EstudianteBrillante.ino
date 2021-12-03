@@ -30,17 +30,17 @@ ISR(TIMER1_COMPA_vect) {
 ISR(TIMER2_OVF_vect) {
   t_stamp = mseg;
   voltaje = analogRead(pinVoltaje); //lectura del voltaje
-  corriente = analogRead(pinCorriente); //Lectura de la corriente
+  corriente = analogRead(pinCorriente); //Lectura de la señal y transformacion a valor de corriente
   newdataVI=true;
   //Serial.println("VI,"+t_stamp+','+voltaje+','+corriente); //Imprimir lecturas de voltaje y corriente
 }
 
 void rpmllanta() {   // Funcion que se ejecuta durante cada interrupion
-  if (PrimeraRev == true) {
+  if (PrimeraRev) {
     t0 = mseg;
     PrimeraRev = false;
   }
-  else if (PrimeraRev == false) {
+  else if (!PrimeraRev) {
     delta_t = mseg - t0;
     t0 = mseg;
     newdataRPMLlanta=true;
@@ -76,7 +76,7 @@ void setup() {
   TCCR1B |= 0b00000011; //62500 ---> 110
   TIMSK1 |= 1 << OCIE1A;
   interrupts();
-  
+
   attachInterrupt(digitalPinToInterrupt(pinLlanta), rpmllanta, FALLING); // Interrupcion rpm Llanta
   attachInterrupt(digitalPinToInterrupt(pinMotor), rpmmotor, FALLING); //Interrupcion rpm Motor
   //Crear PIT para lectura de Voltaje y Corriente
@@ -88,7 +88,7 @@ void setup() {
 }
 
 void loop() {
-//Print data from sensors  
+//Print data from sensors
   printVI();
   printRPMLlanta();
   printRPMMotor();
