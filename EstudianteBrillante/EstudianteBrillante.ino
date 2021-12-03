@@ -3,20 +3,19 @@ volatile unsigned long t_stamp; //Timestamp
 volatile uint16_t voltaje = 0; //Inicializa la variable para medición de voltaje
 volatile uint16_t corriente = 0; //Inicializa la variable para medición de corriente
 
-volatile unsigned long delta_t = 0; //Periodo
-volatile unsigned long t0 = 0; //Tiempo primer flanco de bajada
-volatile bool PrimeraRev = true; //Identifica que es la primera revolucion de la llanta
+volatile unsigned long delta_t_w = 0; //Periodo
+volatile unsigned long t0_w = 0; //Tiempo primer flanco de bajada
+volatile bool isFirstRev_w = true; //Identifica que es la primera revolucion de la llanta
 
-volatile uint8_t pulsos = 0;
-volatile unsigned long t_init;
-volatile unsigned long x;
-volatile unsigned long periodo;
+volatile unsigned long delta_t_m = 0; //Periodo
+volatile unsigned long t0_m = 0; //Tiempo primer flanco de bajada
+volatile bool isFirstRev_m = true; //Identifica que es la primera revolucion del motor
 
 volatile unsigned long mseg = 0; //Contador Timestamp
 
 bool newdataVI=false;
 bool newdataRPMmotor=false;
-bool newdataRPMLlanta=false;
+bool newdataRPMwheel=false;
 
 #define pinLlanta 2 //Pin de interrupción de sensor hall para la Llanta
 #define pinMotor 3 //Pin de interrupción de sensor hall para el motor
@@ -35,31 +34,27 @@ ISR(TIMER2_OVF_vect) {
   //Serial.println("VI,"+t_stamp+','+voltaje+','+corriente); //Imprimir lecturas de voltaje y corriente
 }
 
-void rpmllanta() {   // Funcion que se ejecuta durante cada interrupion
-  if (PrimeraRev) {
-    t0 = mseg;
-    PrimeraRev = false;
+void rpmWheel() {   // Funcion que se ejecuta durante cada interrupion
+  if (isFirstRev_w) {
+    t0_w = mseg;
+    isFirstRev_w = false;
   }
-  else if (!PrimeraRev) {
-    delta_t = mseg - t0;
-    t0 = mseg;
-    newdataRPMLlanta=true;
+  else {
+    delta_t_w = mseg - t0_w;
+    t0_w = mseg;
+    newdataRPMwheel=true;
   }
 }
 
-void rpmmotor() {   // Funcion que se ejecuta durante cada interrupion
-  pulsos++;
-  x=mseg;
-  if (pulsos == 1) {
-    t_init = x;
+void rpmMotor() {   // Funcion que se ejecuta durante cada interrupion
+  if (isFirstRev_m) {
+    t0_m = mseg;
+    isFirstRev_m = false;
   }
-  if (pulsos == 6) {
-    periodo = x - t_init;
-    t_init = x;
+  else {
+    delta_t_m = mseg - t0_m;
+    t0_m = mseg;
     newdataRPMmotor=true;
-  }
-  if (pulsos == 6) {
-    pulsos = 1;
   }
 }
 
@@ -77,8 +72,8 @@ void setup() {
   TIMSK1 |= 1 << OCIE1A;
   interrupts();
 
-  attachInterrupt(digitalPinToInterrupt(pinLlanta), rpmllanta, FALLING); // Interrupcion rpm Llanta
-  attachInterrupt(digitalPinToInterrupt(pinMotor), rpmmotor, FALLING); //Interrupcion rpm Motor
+  attachInterrupt(digitalPinToInterrupt(pinLlanta), rpmWheel, FALLING); // Interrupcion rpm Llanta
+  attachInterrupt(digitalPinToInterrupt(pinMotor), rpmMotor, FALLING); //Interrupcion rpm Motor
   //Crear PIT para lectura de Voltaje y Corriente
   SREG = (SREG & 0b01111111); //Desabilitar interrupciones
   TCNT2 = 0; //Limpiar contenido del registro del Timer-2
@@ -94,6 +89,21 @@ void loop() {
   printRPMMotor();
 }
 
+void SendData(){
+  /*
+  Data Message:
+
+  time, ID, data1, data2, 0x13, 0x10
+
+  ID{
+    0: Voltage(data1) and Current(data2)
+    1: RPM Wheel(data1), 0x00(data2)
+    2: RPM motor(data1), 0x00(data2)
+  }
+  */
+
+}
+
 void printVI(){
   if (newdataVI==true){
     Serial.print("VI, ");//Imprimir periodo de la Llanta
@@ -107,7 +117,7 @@ void printVI(){
 }
 
 void printRPMLlanta(){
-  if(newdataRPMLlanta==true){
+  if(newdataRPMwheel==true){
     Serial.print("LLanta, ");//Imprimir periodo de la Llanta
     Serial.print(t0);
     Serial.print(",");
