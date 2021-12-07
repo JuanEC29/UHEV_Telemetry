@@ -1,50 +1,77 @@
 from datetime import datetime
 import serial
 import numpy as np
+import time
+import struct
 
-serialPort = serial.Serial(port="COM4", baudrate=9600, bytesize=8, timeout=10)
+serialPort = serial.Serial(port="COM4", baudrate=9600, bytesize=8, timeout=10) #Cambiar puerto serial según conexión
 f = open(f'Prueba-UHEV_{datetime.now().strftime("%Y_%m_%d-%H_%M_%S")}.csv', 'w')
-errores = 0
+
+errors = 0
+last_tstamp = 0
+total_processed = 0
+
+
+#Estructura de los mensajes:
+
+#   time,ID,RPM_wheel, 0x13 0x10        ID=0
+#   time,ID,RPM_motor, 0x13 0x10        ID=1
+#   time,ID,Voltage,Current, 0x13 0x10  ID=2
+
+def voltage_current(line):
+    voltaje = line.split(',')[1]
+    voltaje = voltaje*(5.0/1024)
+    corriente = line.split(',')[2]
+    corriente = ((corriente*(5.0/1024))-2.5)/0.1
+    t_stamp = line.split(',')[3]
+    t_stamp = t_stamp/1000
+    print(f"{t_stamp},{voltaje:.2f},{corriente:.2f}")
+    f.write(f"{t_stamp},{voltaje:.2f},{corriente:.2f}")
+    f.write("\n")
+
+
+#Arreglar escritura de los datos en el csv
+def rpm_motor(line):
+    Periodo_Motor = line.split(',')[1]
+    RPM_Motor = (1/Periodo_Motor)*60000
+    t_stamp = line.split(',')[2]
+    t_stamp = t_stamp/1000
+    print(f"{t_stamp},{voltaje:.2f},{corriente:.2f}")
+    f.write(f"{t_stamp},{voltaje:.2f},{corriente:.2f}")
+    f.write("\n")
+
+
+def rpm_wheel(line):
+    Periodo_Llanta = line.split(',')[1]
+    RPM_Llanta = (1/Periodo_Llanta)*60000
+    t_stamp = line.split(',')[2]
+    t_stamp = t_stamp/1000
+    print(f"{t_stamp},{voltaje:.2f},{corriente:.2f}")
+    f.write(f"{t_stamp},{voltaje:.2f},{corriente:.2f}")
+    f.write("\n")
 
 while 1:
     if serialPort.in_waiting > 0:
-        serialString = serialPort.read(13)
-        serialInt = np.frombuffer(serialString, dtype=np.uint8)
-        if 13 != serialInt[11] and 10 != serialInt[12]:
-            errores = errores + 1
-            print(errores)
-            bant = 0
-            while 1:
-                b = serialPort.read(1)
-                if 13 == bant and 10 == b:
-                    break
-                bant = b
+        #En caso de tener datos en el puerto serial se lee cada linea, luego se separa por comas y se identifica el ID
+        serialString = serialPort.readline()
+        line=serialString.decode()
+        line=line.rstrip()
+        ID=line.split(",")[1]
+        last_tstamp = line.split(",")[0]
+
+        #Decodificar cada mensaje segun ID
+        if ID==0:
+            rpm_wheel(line)
+        elif ID==1:
+            rpm_wheel(line)
+        elif ID==2:
+            voltage_current(line)
         else:
-            print(serialInt)
-            ID = serialInt[0] * 256 + serialInt[1]
-            f.write(str(ID) + ',')
-            for i in range(2, 10):
-                f.write(str(serialInt[i]) + ',')
-            f.write(str(serialInt[10]) + '\n')
+            errors += 1
 
-            Tn = int(serialInt[10])
-            dT = Tn - Ta
-            if dT >= 0:
-                T = T + dT
-            else:
-                T = T + dT + 255
-            Ta = Tn
+        total_processed += 1
 
-            if serialInt[4] == 16:
-                MAF = (((256 * serialInt[5]) + serialInt[6]) / 100)
-                lam = ((2 / 65536) * (256 * serialInt[8]) + serialInt[9])
-                EFR_2 = MAF / (14.7 * lam * 680)  # L/s
-                val_1 = 1
-            if serialInt[4] == 12:
-                RPM = (((256 * serialInt[5]) + serialInt[6]) / 4)
-                EFR = (((256 * serialInt[8]) + serialInt[9]) / 20) / 3600
-                val_2 = 1
-            if val_1 and val_2:
-                f.write(str(T / 1000) + ',' + str(RPM) + ',' + str(EFR) + ',' + str(EFR_2) + '\n')
-                val_1 = 0
-                val_2 = 0
+        if total_processed % 10 == 0:
+            f.flush()
+            #Arreglar bytes in_waiting
+            print(f"Procesado {total_processed} datos. Ultimo timestamp: {last_tstamp} Bytes en el buffer: {serialport.in_waiting} . Errores: {errors}")
