@@ -86,12 +86,15 @@ void loop() {
   //Magic shit
 }
 
-void SendRPM(unsigned long time_stamp, bool id, unsigned long data_variable){
+void SendRPM(unsigned long time_stamp, uint8_t id, unsigned long data_variable){
   /*
   Data Message RPM:
 
   time, ID, data, 0x13, 0x10
 
+  8 Bytes 1 Bytes 1 Byte  1 Bytes 8 Bytes 1 Bytes 8 Bytes 2 Bytes
+  t-stamp ,       id      ,       rpm_data ,       empty_data 0x13 0x10 
+  
   ID{
   0: RPM Wheel(data1), 0x00(data2)
   1: RPM motor(data1), 0x00(data2)
@@ -102,6 +105,8 @@ void SendRPM(unsigned long time_stamp, bool id, unsigned long data_variable){
   Serial.write(id);
   Serial.write(0x2C); // ,
   Serial.write(data_variable);
+  Serial.write(0x2C); // ,
+  Serial.write(0x0000);
   Serial.write(0x13);
   Serial.write(0x10);
 }
@@ -110,7 +115,10 @@ void SendVI(unsigned long time_stamp, uint8_t id, unsigned long voltage, unsigne
   /*
   Data Message VI:
 
-  time, ID, Voltage, Current, 0x13, 0x10
+  time, ID, Voltage, Current, 0x13, 0x10 
+
+  8 Bytes 1 Bytes 1 Byte  1 Bytes 8 Bytes 1 Bytes 8 Bytes 2 Bytes
+  t-stamp ,       id      ,       voltage ,       current 0x13 0x10 
   */
   Serial.write(time_stamp);
   Serial.write(0x2C); // ,
