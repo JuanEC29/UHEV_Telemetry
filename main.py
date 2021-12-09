@@ -1,8 +1,5 @@
 from datetime import datetime
 import serial
-import numpy as np
-import time
-import struct
 
 errors = 0
 last_tstamp = 0
@@ -16,7 +13,7 @@ total_processed = 0
 
 def voltage_current(line):
     voltage = line.split(',')[2]
-    voltage = (voltage*(5.0/1023))*0.1246684 # 0.1246684 = R2/(R1+R2)
+    voltage = (voltage*(5.0/1023))/0.1246684 # 0.1246684 = R2/(R1+R2)
     corriente = line.split(',')[3]
     corriente = ((corriente*(5.0/1023))-2.5)/0.1
     t_stamp = line.split(',')[0]
@@ -46,27 +43,28 @@ def rpm_wheel(line):
     f.write("\n")
 
 with open(f'Prueba-UHEV_{datetime.now().strftime("%Y_%m_%d-%H_%M_%S")}.csv', 'w') as f:
-    with serial.Serial(port="COM4", baudrate=9600, bytesize=8, timeout=10) as s:
-        if s.in_waiting > 0:
-            #En caso de tener datos en el puerto serial se lee cada linea, luego se separa por comas y se identifica el ID
-            serialString = s.readline()
-            line=serialString.decode()
-            line=line.rstrip()
-            ID=line.split(",")[1]
-            last_tstamp = line.split(",")[0]
+    with serial.Serial(port="COM3", baudrate=9600, bytesize=8, timeout=10) as s:
+        while True:
+            if s.in_waiting > 0:
+                #En caso de tener datos en el puerto serial se lee cada linea, luego se separa por comas y se identifica el ID
+                serialString = s.readline()
+                line=serialString.decode()
+                line=line.rstrip()
+                ID=line.split(",")[1]
+                last_tstamp = line.split(",")[0]
 
-            #Decodificar cada mensaje segun ID
-            if ID==0:
-                rpm_wheel(line)
-            elif ID==1:
-                rpm_motor(line)
-            elif ID==2:
-                voltage_current(line)
-            else:
-                errors += 1
+                #Decodificar cada mensaje segun ID
+                if ID==0:
+                    rpm_wheel(line)
+                elif ID==1:
+                    rpm_motor(line)
+                elif ID==2:
+                    voltage_current(line)
+                else:
+                    errors += 1
 
-            total_processed += 1
-            if total_processed % 10 == 0:
-                f.flush()
-                #Arreglar bytes in_waiting
-                print(f"Procesado {total_processed} datos. Ultimo timestamp: {last_tstamp} Bytes en el buffer: {s.in_waiting} . Errores: {errors}")
+                total_processed += 1
+                if total_processed % 10 == 0:
+                    f.flush()
+                    #Arreglar bytes in_waiting
+                    print(f"Procesado {total_processed} datos. Ultimo timestamp: {last_tstamp} Bytes en el buffer: {s.in_waiting} . Errores: {errors}")
