@@ -51,28 +51,28 @@ with open(f'Prueba-UHEV_{datetime.now().strftime("%Y_%m_%d-%H_%M_%S")}.csv', 'w'
         while True:
             if s.in_waiting > 0:
                 # En caso de tener datos en el puerto serial se lee cada linea, luego se separa por comas y se identifica el ID
-                line = s.readline()
-
-                #line = serialString.decode()
-                lineInt = np.frombuffer(line, dtype=np.uint8)
-                #line = line.rstrip()*/-
-                np.core.defchararray.rstrip(line, chars=[0x10, 0x13])
-                ID = line.split(",")[1]
-                last_tstamp = line.split(",")[0]
+                serialString = serialPort.read(30)
+                serialInt=np.frombuffer(serialString, dtype=np.uint8)
+                if(serialInt[28]!=13 and serialInt[30]!=10):
+                    errores=errores+1
+                    print(errores)
+                    bant=0
+                    while(1):
+                        b=serialPort.read(1)
+                        if (bant==13 and b==10):
+                            break
+                        bant=b
+                else:
+                    print(serialInt)
+                    ID = serialInt[8]
+                    #time =  !!!-> hacer formula para sacar timepo de los primeros 8 bytes
 
                 # Decodificar cada mensaje segun ID
                 if ID == 0:
-                    rpm_wheel(line)
+                    rpm_wheel(serialInt)
                 elif ID == 1:
-                    rpm_motor(line)
+                    rpm_motor(serialInt)
                 elif ID == 2:
-                    voltage_current(line)
+                    voltage_current(serialInt)
                 else:
                     errors += 1
-
-                total_processed += 1
-                if total_processed % 10 == 0:
-                    f.flush()
-                    # Arreglar bytes in_waiting
-                    print(
-                        f"Procesado {total_processed} datos. Ultimo timestamp: {last_tstamp} Bytes en el buffer: {s.in_waiting} . Errores: {errors}")
