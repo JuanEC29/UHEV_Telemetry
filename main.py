@@ -1,10 +1,7 @@
 from datetime import datetime
-import numpy as np
 import serial
 
-errors = 0
-last_tstamp = 0
-total_processed = 0
+serialString = ""
 
 
 # Messages:
@@ -39,13 +36,14 @@ serialPort = serial.Serial(port="COM4", baudrate=115200, bytesize=8, timeout=10)
 f = open(f'Prueba-UHEV_{datetime.now().strftime("%Y_%m_%d-%H_%M_%S")}.csv', 'w')
 while 1:
     if serialPort.in_waiting > 0:
-        serialString = serialPort.readline()
-        print(serialString.decode('Ascii'))
-        #serialInt = np.frombuffer(serialString, dtype=np.uint8)
-        #print(serialInt)
-        #ID = serialInt[8]
-        # time =  !!!-> hacer formula para sacar timepo de los primeros 8 bytes
-        #if ID == 0 or ID == 1:
+        serialAscii = serialPort.readline()  # [ascii element, ascii element,ascii element]
+        for ii in serialAscii:
+            serialString = serialString + chr(ii)  # ascii to string
+        serialString = serialString.rstrip()  # eliminate \r and \n
+        serialInt = [int(jj) for jj in serialString.split(',')]
+        print(serialInt)
+        serialString = ""
+        # if ID == 0 or ID == 1:
         #    rpm(serialInt)
-        #elif ID == 2:
+        # elif ID == 2:
         #    voltage_current(serialInt)
