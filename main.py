@@ -11,14 +11,11 @@ serialString = ""
 #   time,ID,Voltage,Current, 0x13 0x10  ID=2
 
 def voltage_current(line):
-    voltage = line.split(',')[2]
-    voltage = (voltage * (5.0 / 1023)) / 0.1246684  # 0.1246684 = R2/(R1+R2)
-    corriente = line.split(',')[3]
-    corriente = ((corriente * (5.0 / 1023)) - 2.5) / 0.1
-    t_stamp = line.split(',')[0]
-    t_stamp = t_stamp / 1000
-    print(f"{t_stamp},{voltage:.2f},{corriente:.2f}")
-    f.write(f"{t_stamp},{voltage:.2f},{corriente:.2f}")
+    voltage = (line[3] * (5.0 / 1023)) / 0.1246684  # 0.1246684 = R2/(R1+R2)
+    current = ((line[3] * (5.0 / 1023)) - 2.5) / 0.1
+    t_stamp = line[0]/1000
+    print(f"{t_stamp},{voltage:.2f},{current:.2f}")
+    f.write(f"{t_stamp},{voltage:.2f},{current:.2f}")
     f.write("\n")
 
 
@@ -40,10 +37,10 @@ while 1:
         for ii in serialAscii:
             serialString = serialString + chr(ii)  # ascii to string
         serialString = serialString.rstrip()  # eliminate \r and \n
-        serialInt = [int(jj) for jj in serialString.split(',')]
-        print(serialInt)
+        serialInt = [int(jj) for jj in serialString.split(',')]  # convert to int the serialString separated by commas
+        print(serialInt)  # print the incoming message to verify
         serialString = ""
-        # if ID == 0 or ID == 1:
-        #    rpm(serialInt)
-        # elif ID == 2:
-        #    voltage_current(serialInt)
+        if serialInt[1] == 2:  # ID 2; voltage and current
+            voltage_current(serialInt)
+        else:  # ID 0 or 1; rpm
+            rpm(serialInt)
